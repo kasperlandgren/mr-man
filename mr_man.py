@@ -9,7 +9,6 @@ import time
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
-topkek = {}#"zhavriell": " :sadcat:", "Kapé": " :thinking:"}
 
 client = discord.Client()
 
@@ -44,16 +43,10 @@ def stringify(d):
     retval = {}
     for user, items in d.items():
         for item in items:
-            if item not in retval:
-                if user in topkek:
-                    retval[str(item)] = [user + topkek[user]]
-                else:
-                    retval[str(item)] = [user]
+            if str(item) not in retval:
+                retval[str(item)] = [user]
             else:
-                if user in topkek:
-                    retval[str(item)].append(user + topkek[user])
-                else:
-                    retval[item].append(user)
+                retval[str(item)].append(user)
 
     return str(retval).replace("\"", "'").replace("'], '", "\n").replace("{", "").replace("}", "").replace("', '", ", ")\
         .replace("['", "").replace("']", "").replace("':", ":")[1:]
@@ -69,8 +62,8 @@ async def on_ready():
 async def on_message(msg):
     global mc_msg, zg_msg
     channel = msg.channel
-    async with channel.typing():
-        if msg.content.startswith("!"):
+    if msg.content.startswith("!"):
+        async with channel.typing():
             data_in = msg.content[1:]
             if data_in == "?":
                 response = google_fu("test", "test")
@@ -86,8 +79,8 @@ async def on_message(msg):
                         print(item)
                         await channel.send(item, delete_after=20)
                         return
-                    reserves_mc[msg.author.display_name] = [item]
-                    print(msg.author.display_name, item)
+                    reserves_mc[msg.author.mention] = [item]
+                    print(channel.name, data_in[data_in.find(" "):], msg.author.display_name, item)
                     post = await channel.fetch_message(mc_msg)
                     await post.edit(content=default_message("MC") + stringify(reserves_mc))
 
@@ -98,7 +91,8 @@ async def on_message(msg):
                         print(item)
                         await channel.send(item, delete_after=20)
                         return
-                    reserves_zg[msg.author.display_name] = [item]
+                    reserves_zg[msg.author.mention] = [item]
+                    print(channel.name, data_in[data_in.find(" "):], msg.author.display_name, item)
                     post = await channel.fetch_message(zg_msg)
                     await post.edit(content=default_message("ZG") + stringify(reserves_zg))
 
