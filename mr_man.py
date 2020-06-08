@@ -163,6 +163,9 @@ async def on_message(msg):
                         await channel.last_message.delete()
                         hardres[abbrev] = set()
                         reserves[abbrev] = {}
+                        if "test" in channel.name:
+                            await channel.send("**This is not the channel we're using. This is just for testing the bot before we're taking it live\n\n"\
+                                               "Please try it out and send feedback to Quark**")
                         return
 
             await msg.delete()
