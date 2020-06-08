@@ -96,7 +96,7 @@ async def on_message(msg):
                         await channel.send(item, delete_after=20)
                         return
                     if item == "Warblade of the Hakkari":
-                        if "oh" in data_in or "off" in data_in:
+                        if "oh" in data_in.lower() or "off" in data_in.lower():
                             item = "Warblade of the Hakkari (OH)"
                         else:
                             item = "Warblade of the Hakkari (MH)"
