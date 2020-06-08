@@ -41,15 +41,19 @@ def google_fu(item, location):
 
 def stringify(d):
     retval = {}
-    for user, items in d.items():
-        for item in items:
-            if str(item) not in retval:
-                retval[str(item)] = [user]
-            else:
-                retval[str(item)].append(user)
+    counter = 0
+    for user, item in d.items():
+        counter = counter + 1
+        if str(item) not in retval:
+            retval[str(item)] = [user]
+        else:
+            retval[str(item)].append(user)
 
-    return str(retval).replace("\"", "'").replace("'], '", "\n").replace("{", "").replace("}", "").replace("', '", ", ")\
-        .replace("['", "").replace("']", "").replace("':", ":")[1:]
+    return "Total amount of reservations: " + str(counter) + "\n\n" + str(retval).replace("\"", "'")\
+                                                                          .replace("'], '", "\n").replace("{", "")\
+                                                                          .replace("}", "").replace("', '", ", ")\
+                                                                          .replace("['", "").replace("']", "")\
+                                                                          .replace("':", ":")[1:]
 
 
 @client.event
@@ -91,6 +95,11 @@ async def on_message(msg):
                         print(item)
                         await channel.send(item, delete_after=20)
                         return
+                    if item == "Warblade of the Hakkari":
+                        if "oh" in data_in or "off" in data_in:
+                            item = "Warblade of the Hakkari (OH)"
+                        else:
+                            item = "Warblade of the Hakkari (MH)"
                     reserves_zg[msg.author.mention] = [item]
                     print(channel.name, data_in[data_in.find(" "):], msg.author.display_name, item)
                     post = await channel.fetch_message(zg_msg)
