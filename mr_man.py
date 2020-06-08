@@ -12,15 +12,14 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 client = discord.Client()
 
-reserves_mc = {}
-reserves_zg = {}
+reserves = {}
+hardres = {}
 
-mc_msg = 3
-zg_msg = 2
+own_msg = {}
 
 
 def default_message(raid):
-    return "----------------- Soft reserves for " + raid + " ---------------\n"\
+    return "----------------- Soft reserves for " + raid.upper() + " ---------------\n"\
                                                "Type !res <item>\n"
 
 
@@ -32,15 +31,24 @@ def google_fu(item, location):
             r = requests.get(url, headers=headers)
             soup = BeautifulSoup(r.text, "html.parser")
             name = str(soup.title.string)
-            return name[:name.find(" -")]
+            retval = name[:name.find(" -")]
+            if retval == "Warblade of the Hakkari":
+                if "oh" in item.lower() or "off" in item.lower():
+                    return "Warblade of the Hakkari (OH)"
+                else:
+                    return "Warblade of the Hakkari (MH)"
+            return retval
+
     except HTTPError as err:
         if err.code == 429:
             print(err.headers)
         return "Google is sending me hate mail, gotta chill :("
 
 
-def stringify(d):
+def stringify(d, hd):
     retval = {}
+    print(d)
+    print(hd)
     counter = 0
     for user, item in d.items():
         counter = counter + 1
@@ -49,11 +57,10 @@ def stringify(d):
         else:
             retval[str(item)].append(user)
 
-    return "Total amount of reservations: " + str(counter) + "\n\n" + str(retval).replace("\"", "'")\
-                                                                          .replace("'], '", "\n").replace("{", "")\
-                                                                          .replace("}", "").replace("', '", ", ")\
-                                                                          .replace("['", "").replace("']", "")\
-                                                                          .replace("':", ":")[1:]
+    return "Total amount of reservations: " + str(counter) + "\n\n" + "Hard reserved: " + str(hd).replace("set()", "")\
+                .replace("\"", "'").replace("{'", "").replace("'}", "").replace("', '", ", ") + "\n\n" + \
+             str(retval).replace("\"", "'").replace("'], '", "\n").replace("{", "").replace("}", "")\
+                .replace("', '", ", ").replace("['", "").replace("']", "").replace("':", ":")[1:]
 
 
 @client.event
@@ -64,9 +71,8 @@ async def on_ready():
 
 @client.event
 async def on_message(msg):
-    global mc_msg, zg_msg
     channel = msg.channel
-    if msg.content.startswith("!"):
+    if msg.content.startswith("!") and "soft-res" in channel.name:
         async with channel.typing():
             data_in = msg.content[1:]
             if data_in == "?":
@@ -76,55 +82,88 @@ async def on_message(msg):
                 else:
                     await channel.send("We back", delete_after=20)
 
-            elif channel.name.startswith("mc"):
-                if data_in.startswith("res"):
-                    item = google_fu(data_in[data_in.find(" "):], "molten core")
-                    if item is not None and "hate mail" in item:
-                        print(item)
-                        await channel.send(item, delete_after=20)
-                        return
-                    reserves_mc[msg.author.mention] = [item]
-                    print(channel.name, data_in[data_in.find(" "):], msg.author.display_name, item)
-                    post = await channel.fetch_message(mc_msg)
-                    await post.edit(content=default_message("MC") + stringify(reserves_mc))
+            elif data_in.startswith("res"):
+                if channel.name.startswith("mc"):
+                    full_name = "molten core"
+                    abbrev = "mc"
+                    raid_msg = own_msg[abbrev]
+                    res_dict = reserves[abbrev]
+                    hardres_dict = hardres[abbrev]
+                elif channel.name.startswith("zg"):
+                    full_name = "zul'gurub"
+                    abbrev = "zg"
+                    raid_msg = own_msg[abbrev]
+                    res_dict = reserves[abbrev]
+                    hardres_dict = hardres[abbrev]
+                else:
+                    return
 
-            elif channel.name.startswith("zg"):
-                if data_in.startswith("res"):
-                    item = google_fu(data_in[data_in.find(" "):], "zul'gurub")
-                    if item is not None and "hate mail" in item:
-                        print(item)
-                        await channel.send(item, delete_after=20)
-                        return
-                    if item == "Warblade of the Hakkari":
-                        if "oh" in data_in.lower() or "off" in data_in.lower():
-                            item = "Warblade of the Hakkari (OH)"
-                        else:
-                            item = "Warblade of the Hakkari (MH)"
-                    reserves_zg[msg.author.mention] = [item]
-                    print(channel.name, data_in[data_in.find(" "):], msg.author.display_name, item)
-                    post = await channel.fetch_message(zg_msg)
-                    await post.edit(content=default_message("ZG") + stringify(reserves_zg))
+                item = google_fu(data_in[data_in.find(" "):], full_name)
+                if item is not None and "hate mail" in item:
+                    print(item)
+                    await channel.send(item, delete_after=20)
+                    return
+                if item not in hardres_dict:
+                    res_dict[msg.author.mention] = [item]
+
+                print(channel.name, data_in[data_in.find(" "):], msg.author.display_name, item)
+                post = await channel.fetch_message(raid_msg)
+                await post.edit(content=default_message(abbrev) + stringify(res_dict, hardres_dict))
 
             for role in msg.author.roles:
                 if "Hjälte" in role.name:
-                    if data_in == "mc":
-                        async for post in channel.history():
-                            await post.delete()
-                        await channel.send(default_message(data_in.upper()) + "No reserves")
-                        mc_msg = channel.last_message_id
-                        await channel.last_message.pin()
-                        await channel.last_message.delete()
-                    elif data_in == "zg":
-                        async for post in channel.history():
-                            await post.delete()
-                        await channel.send(default_message(data_in.upper()) + "No reserves")
-                        zg_msg = channel.last_message_id
-                        await channel.last_message.pin()
-                        await channel.last_message.delete()
+                    if data_in.startswith("hardres"):
+                        if channel.name.startswith("mc"):
+                            full_name = "molten core"
+                            abbrev = "mc"
+                            raid_msg = own_msg[abbrev]
+                            res_dict = reserves[abbrev]
+                            hardres_dict = hardres[abbrev]
+                        elif channel.name.startswith("zg"):
+                            full_name = "zul'gurub"
+                            abbrev = "zg"
+                            raid_msg = own_msg[abbrev]
+                            res_dict = reserves[abbrev]
+                            hardres_dict = hardres[abbrev]
+                        else:
+                            return
+
+                        item = google_fu(data_in[data_in.find(" "):], full_name)
+                        if item in hardres_dict:
+                            hardres_dict.remove(item)
+                        else:
+                            hardres_dict.add(item)
+                        res_dict = {k:v for k,v in res_dict.items() if v[0] not in hardres_dict}
+                        print(channel.name, data_in[data_in.find(" "):], msg.author.display_name, item)
+                        post = await channel.fetch_message(raid_msg)
+                        await post.edit(content=default_message(abbrev) + stringify(res_dict, hardres_dict))
+
                     elif data_in == "lock":
                         await channel.set_permissions(msg.author.roles[0], send_messages=False)
                     elif data_in == "unlock":
                         await channel.set_permissions(msg.author.roles[0], overwrite=None)
+
+                    else:
+                        """
+                        Because of the continue-statement, this has to be an else-clause at the bottom to make sure
+                        the other clauses are checked before an eventual continuation
+                        """
+                        if data_in == "mc":
+                            abbrev = "mc"
+                        elif data_in == "zg":
+                            abbrev = "zg"
+                        else:
+                            continue
+
+                        async for post in channel.history():
+                            await post.delete()
+                        await channel.send(default_message(data_in.upper()) + "No reserves")
+                        own_msg[abbrev] = channel.last_message_id
+                        await channel.last_message.pin()
+                        await channel.last_message.delete()
+                        hardres[abbrev] = set()
+                        reserves[abbrev] = {}
+                        return
 
             await msg.delete()
 
