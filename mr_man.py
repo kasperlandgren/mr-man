@@ -37,12 +37,19 @@ def google_fu(item, location):
                     return "Warblade of the Hakkari (OH)"
                 else:
                     return "Warblade of the Hakkari (MH)"
-            return retval
+            return retval.replace("\"", "")
 
     except HTTPError as err:
         if err.code == 429:
             print(err.headers)
         return "Google is sending me hate mail, gotta chill :("
+
+
+def make_pretty(counter, hd, retval):
+    return "Total amount of reservations: " + str(counter) + "\n\n" + "Hard reserved: " + str(hd).replace("set()", "Nothing") \
+        .replace("\"", "'").replace("{'", "").replace("'}", "").replace("', '", ", ") + "\n\nSoft reserved:\n" + \
+        str(sorted(retval.items())).replace("\"", "'").replace("None", "'Invalid item'").replace("']', ['", ": ") \
+        .replace("']), ('['", "\n").replace("[('['", "").replace("'])]", "").replace("', '", ", ")
 
 
 def stringify(d, hd):
@@ -53,14 +60,18 @@ def stringify(d, hd):
     for user, item in d.items():
         counter = counter + 1
         if str(item) not in retval:
-            retval[str(item)] = [user]
+            retval[str(item)] = [user.mention]
         else:
-            retval[str(item)].append(user)
+            retval[str(item)].append(user.mention)
 
-    return "Total amount of reservations: " + str(counter) + "\n\n" + "Hard reserved: " + str(hd).replace("set()", "")\
-                .replace("\"", "'").replace("{'", "").replace("'}", "").replace("', '", ", ") + "\n\n" + \
-             str(retval).replace("\"", "'").replace("'], '", "\n").replace("{", "").replace("}", "")\
-                .replace("', '", ", ").replace("['", "").replace("']", "").replace("':", ":")[1:]
+    return make_pretty(counter, hd, retval)  + "\n\n" + explanation()
+
+
+def explanation():
+    return "Comments will be removed. Type !res <item> to softreserve your item. \n\n" \
+           "Example: If I wanted to softreserve Krol Blade I would type !res krol blade\n\n" \
+           "The item is automatically added to the list above.\n\n" \
+           "Made by <@178953027108077568>"
 
 
 @client.event
@@ -72,7 +83,7 @@ async def on_ready():
 @client.event
 async def on_message(msg):
     channel = msg.channel
-    if msg.content.startswith("!") and "soft-res" in channel.name:
+    if msg.content.startswith("!") and "res" in channel.name:
         async with channel.typing():
             data_in = msg.content[1:]
             if data_in == "?":
@@ -95,6 +106,24 @@ async def on_message(msg):
                     raid_msg = own_msg[abbrev]
                     res_dict = reserves[abbrev]
                     hardres_dict = hardres[abbrev]
+                elif channel.name.startswith("aq20"):
+                    full_name = "ruins of ahn'qiraj"
+                    abbrev = "aq20"
+                    raid_msg = own_msg[abbrev]
+                    res_dict = reserves[abbrev]
+                    hardres_dict = hardres[abbrev]
+                elif channel.name.startswith("aq40"):
+                    full_name = "temple of ahn'qiraj"
+                    abbrev = "aq40"
+                    raid_msg = own_msg[abbrev]
+                    res_dict = reserves[abbrev]
+                    hardres_dict = hardres[abbrev]
+                elif channel.name.startswith("naxx"):
+                    full_name = "naxxramas"
+                    abbrev = "naxx"
+                    raid_msg = own_msg[abbrev]
+                    res_dict = reserves[abbrev]
+                    hardres_dict = hardres[abbrev]
                 else:
                     return
 
@@ -104,7 +133,7 @@ async def on_message(msg):
                     await channel.send(item, delete_after=20)
                     return
                 if item not in hardres_dict:
-                    res_dict[msg.author.mention] = [item]
+                    res_dict[msg.author] = [item]
 
                 print(channel.name, data_in[data_in.find(" "):], msg.author.display_name, item)
                 post = await channel.fetch_message(raid_msg)
@@ -125,15 +154,33 @@ async def on_message(msg):
                             raid_msg = own_msg[abbrev]
                             res_dict = reserves[abbrev]
                             hardres_dict = hardres[abbrev]
+                        elif channel.name.startswith("aq20"):
+                            full_name = "ruins of ahn'qiraj"
+                            abbrev = "aq20"
+                            raid_msg = own_msg[abbrev]
+                            res_dict = reserves[abbrev]
+                            hardres_dict = hardres[abbrev]
+                        elif channel.name.startswith("aq40"):
+                            full_name = "temple of ahn'qiraj"
+                            abbrev = "aq40"
+                            raid_msg = own_msg[abbrev]
+                            res_dict = reserves[abbrev]
+                            hardres_dict = hardres[abbrev]
+                        elif channel.name.startswith("naxx"):
+                            full_name = "naxxramas"
+                            abbrev = "naxx"
+                            raid_msg = own_msg[abbrev]
+                            res_dict = reserves[abbrev]
+                            hardres_dict = hardres[abbrev]
                         else:
                             return
 
                         item = google_fu(data_in[data_in.find(" "):], full_name)
                         if item in hardres_dict:
                             hardres_dict.remove(item)
-                        else:
+                        elif item is not None:
                             hardres_dict.add(item)
-                        res_dict = {k:v for k,v in res_dict.items() if v[0] not in hardres_dict}
+                        res_dict = {k:v for k,v in sorted(res_dict.items()) if v[0] not in hardres_dict}
                         print(channel.name, data_in[data_in.find(" "):], msg.author.display_name, item)
                         post = await channel.fetch_message(raid_msg)
                         await post.edit(content=default_message(abbrev) + stringify(res_dict, hardres_dict))
@@ -144,23 +191,24 @@ async def on_message(msg):
                         await channel.set_permissions(msg.author.roles[0], overwrite=None)
 
                     else:
-                        """
-                        Because of the continue-statement, this has to be an else-clause at the bottom to make sure
-                        the other clauses are checked before an eventual continuation
-                        """
                         if data_in == "mc":
                             abbrev = "mc"
                         elif data_in == "zg":
                             abbrev = "zg"
+                        elif data_in == "aq20":
+                            abbrev = "aq20"
+                        elif data_in == "aq40":
+                            abbrev = "aq40"
+                        elif data_in == "naxx":
+                            abbrev = "naxx"
                         else:
                             continue
 
                         async for post in channel.history():
                             await post.delete()
-                        await channel.send(default_message(data_in.upper()) + "No reserves")
-                        own_msg[abbrev] = channel.last_message_id
-                        await channel.last_message.pin()
-                        await channel.last_message.delete()
+
+                        message = await channel.send(default_message(data_in.upper()) + "No reserves" + "\n\n" + explanation())
+                        own_msg[abbrev] = message.id
                         hardres[abbrev] = set()
                         reserves[abbrev] = {}
                         if "test" in channel.name:
@@ -168,7 +216,9 @@ async def on_message(msg):
                                                "Please try it out and send feedback to Quark**")
                         return
 
-            await msg.delete()
+    if "soft-res" in channel.name and msg.author.id != 718002680982929519:
+        await msg.delete()
 
 
-client.run(TOKEN)
+if __name__ == "__main__":
+    client.run(TOKEN)
