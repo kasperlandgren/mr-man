@@ -181,10 +181,6 @@ async def on_message(msg):
                         else:
                             return
                         player_id = int(data_in[data_in.find(" ")+1:])
-                        if player_id == 178953027108077568:
-                            print("JARÅ")
-                        print(player_id)
-                        print(client.get_user(player_id))
                         res_dict.pop(client.get_user(player_id), None)
 
                         post = await channel.fetch_message(raid_msg)
