@@ -19,8 +19,7 @@ own_msg = {}
 
 
 def default_message(raid):
-    return "----------------- Soft reserves for " + raid.upper() + " ---------------\n"\
-                                               "Type !res <item>\n"
+    return "----------------- Soft reserves for " + raid.upper() + " ---------------\n"
 
 
 def google_fu(item, location):
@@ -70,8 +69,33 @@ def stringify(d, hd):
 def explanation():
     return "Comments will be removed. Type !res <item> to softreserve your item. \n\n" \
            "Example: If I wanted to softreserve Krol Blade I would type !res krol blade\n\n" \
+           "Type !res remove to remove your softres\n\n" \
            "The item is automatically added to the list above.\n\n" \
            "Made by <@178953027108077568>"
+
+
+def parse_channel(channel_name):
+    if channel_name.startswith("mc"):
+        full_name = "molten core"
+        abbrev = "mc"
+    elif channel_name.startswith("bwl"):
+        full_name = "blackwing lair"
+        abbrev = "bwl"
+    elif channel_name.startswith("zg"):
+        full_name = "zul'gurub"
+        abbrev = "zg"
+    elif channel_name.startswith("aq20"):
+        full_name = "ruins of ahn'qiraj"
+        abbrev = "aq20"
+    elif channel_name.startswith("aq40"):
+        full_name = "temple of ahn'qiraj"
+        abbrev = "aq40"
+    elif channel_name.startswith("naxx"):
+        full_name = "naxxramas"
+        abbrev = "naxx"
+    else:
+        return None
+    return own_msg[abbrev], reserves[abbrev], hardres[abbrev], full_name, abbrev
 
 
 @client.event
@@ -94,46 +118,26 @@ async def on_message(msg):
                     await channel.send("We back", delete_after=20)
 
             elif data_in.startswith("res"):
-                if channel.name.startswith("mc"):
-                    full_name = "molten core"
-                    abbrev = "mc"
-                    raid_msg = own_msg[abbrev]
-                    res_dict = reserves[abbrev]
-                    hardres_dict = hardres[abbrev]
-                elif channel.name.startswith("zg"):
-                    full_name = "zul'gurub"
-                    abbrev = "zg"
-                    raid_msg = own_msg[abbrev]
-                    res_dict = reserves[abbrev]
-                    hardres_dict = hardres[abbrev]
-                elif channel.name.startswith("aq20"):
-                    full_name = "ruins of ahn'qiraj"
-                    abbrev = "aq20"
-                    raid_msg = own_msg[abbrev]
-                    res_dict = reserves[abbrev]
-                    hardres_dict = hardres[abbrev]
-                elif channel.name.startswith("aq40"):
-                    full_name = "temple of ahn'qiraj"
-                    abbrev = "aq40"
-                    raid_msg = own_msg[abbrev]
-                    res_dict = reserves[abbrev]
-                    hardres_dict = hardres[abbrev]
-                elif channel.name.startswith("naxx"):
-                    full_name = "naxxramas"
-                    abbrev = "naxx"
-                    raid_msg = own_msg[abbrev]
-                    res_dict = reserves[abbrev]
-                    hardres_dict = hardres[abbrev]
+                bundle = parse_channel(channel.name)
+                if bundle is not None:
+                    raid_msg = bundle[0]
+                    res_dict = bundle[1]
+                    hardres_dict = bundle[2]
+                    full_name = bundle[3]
+                    abbrev = bundle[4]
                 else:
                     return
-
-                item = google_fu(data_in[data_in.find(" "):], full_name)
-                if item is not None and "hate mail" in item:
-                    print(item)
-                    await channel.send(item, delete_after=20)
-                    return
-                if item not in hardres_dict:
-                    res_dict[msg.author] = [item]
+                item = data_in[data_in.find(" ")+1:]
+                if item == "remove":
+                    res_dict.pop(msg.author, None)
+                else:
+                    item = google_fu(item, full_name)
+                    if item is not None and "hate mail" in item:
+                        print(item)
+                        await channel.send(item, delete_after=20)
+                        return
+                    if item not in hardres_dict:
+                        res_dict[msg.author] = [item]
 
                 print(channel.name, data_in[data_in.find(" "):], msg.author.display_name, item)
                 post = await channel.fetch_message(raid_msg)
@@ -142,40 +146,17 @@ async def on_message(msg):
             for role in msg.author.roles:
                 if "Hjälte" in role.name:
                     if data_in.startswith("hardres"):
-                        if channel.name.startswith("mc"):
-                            full_name = "molten core"
-                            abbrev = "mc"
-                            raid_msg = own_msg[abbrev]
-                            res_dict = reserves[abbrev]
-                            hardres_dict = hardres[abbrev]
-                        elif channel.name.startswith("zg"):
-                            full_name = "zul'gurub"
-                            abbrev = "zg"
-                            raid_msg = own_msg[abbrev]
-                            res_dict = reserves[abbrev]
-                            hardres_dict = hardres[abbrev]
-                        elif channel.name.startswith("aq20"):
-                            full_name = "ruins of ahn'qiraj"
-                            abbrev = "aq20"
-                            raid_msg = own_msg[abbrev]
-                            res_dict = reserves[abbrev]
-                            hardres_dict = hardres[abbrev]
-                        elif channel.name.startswith("aq40"):
-                            full_name = "temple of ahn'qiraj"
-                            abbrev = "aq40"
-                            raid_msg = own_msg[abbrev]
-                            res_dict = reserves[abbrev]
-                            hardres_dict = hardres[abbrev]
-                        elif channel.name.startswith("naxx"):
-                            full_name = "naxxramas"
-                            abbrev = "naxx"
-                            raid_msg = own_msg[abbrev]
-                            res_dict = reserves[abbrev]
-                            hardres_dict = hardres[abbrev]
+                        bundle = parse_channel(channel.name)
+                        if bundle is not None:
+                            raid_msg = bundle[0]
+                            res_dict = bundle[1]
+                            hardres_dict = bundle[2]
+                            full_name = bundle[3]
+                            abbrev = bundle[4]
                         else:
                             return
 
-                        item = google_fu(data_in[data_in.find(" "):], full_name)
+                        item = google_fu(data_in[data_in.find(" ")+1:], full_name)
                         if item in hardres_dict:
                             hardres_dict.remove(item)
                         elif item is not None:
@@ -189,7 +170,25 @@ async def on_message(msg):
                         await channel.set_permissions(msg.author.roles[0], send_messages=False)
                     elif data_in == "unlock":
                         await channel.set_permissions(msg.author.roles[0], overwrite=None)
+                    elif data_in.startswith("remove"):
+                        bundle = parse_channel(channel.name)
+                        if bundle is not None:
+                            raid_msg = bundle[0]
+                            res_dict = bundle[1]
+                            hardres_dict = bundle[2]
+                            full_name = bundle[3]
+                            abbrev = bundle[4]
+                        else:
+                            return
+                        player_id = int(data_in[data_in.find(" ")+1:])
+                        if player_id == 178953027108077568:
+                            print("JARÅ")
+                        print(player_id)
+                        print(client.get_user(player_id))
+                        res_dict.pop(client.get_user(player_id), None)
 
+                        post = await channel.fetch_message(raid_msg)
+                        await post.edit(content=default_message(abbrev) + stringify(res_dict, hardres_dict))
                     else:
                         if data_in == "mc":
                             abbrev = "mc"
